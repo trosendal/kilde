@@ -1,0 +1,35 @@
+model{
+# This is a straightforward model for SA with ST data without genetic parameters.
+# The model has only multinomial-dirichlet parameters as such. 
+# Classification of the finite sample isolates is based on maximum membership probability (>threshold). 
+##########################
+# posterior of ST frequencies (qST):
+# solved here analytically as dirichlet for each source population.
+# For simplicity, the whole set of ST types (from all sources) are used as a vector
+# of possible ST types [1:nt] .
+# Prior for qST is of the form: "Dir(1/n)" where "n" is the number of ST types (length of vector).
+
+for(i in 1:ns){   # ns = number of source populations
+qST[i,1:nt] ~ ddirich(STpar[i,])
+for(j in 1:nt){  STpar[i,j] <- sourcesST[i,j] + 1/nt; qST.cut[i,j]  <- cut(qST[i,j]) }
+}
+
+# Human isolates: Z[n] = indicator for the underlying source for isolate n.
+for(n in 1:Nisolates){
+largest.value[n] <- ranked(pmembership[n,],ns)
+# attribute to a group only if P > threshold, otherwise attribute to the unknown group (=ns):
+Z[n] <- sum(whichsource[n,])*(1-step(threshold-largest.value[n]) ) + ns*step(threshold-largest.value[n]) 
+for(i in 1:ns){    
+whichsource[n,i] <- equals(largest.value[n],pmembership[n,i])*i  
+  # membership probabilities for each human isolate:    
+  pmembership[n,i] <- pmembership0[n,i]/sum(pmembership0[n,1:ns])     
+  pmembership0[n,i] <- exp(log(phi[i])+log(qST.cut[i,ISTtype[n]]))    
+  S[n,i] <- equals(Z[n],i)   
+  }
+}
+  for(i in 1:ns){    
+  A[i] <- sum(S[,i]) + beta[i]    
+  phi[i] <- phi0[i]/sum(phi0[1:ns])  # =dirichlet(A[1:ns])    
+  phi0[i] ~ dgamma(A[i],1)      
+  }  
+  } # End of model
